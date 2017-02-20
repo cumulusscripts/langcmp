@@ -14,6 +14,7 @@ $header = '<!DOCTYPE html>
 </head>
 <body>';
 $footer = '</body></html>';
+$cdata_regex = '/^<[^><]+><!\[CDATA\[(\s|.)*\]\]><\/[^><]+>$/ui';
 
 if($_SERVER['REQUEST_METHOD'] == 'POST'):
     if( !$_FILES['old_lang_file']['size'] || $_FILES['old_lang_file']['error'] ||
@@ -32,6 +33,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'):
 
     function find_diffs(&$old, &$new, &$diffs, $deep = 0) {
         $deep++;
+        global $cdata_regex;
         for( $new->rewind(); $new->valid(); $new->next() ) {
             $k = $new->key();
             $childs = $new->hasChildren();
@@ -40,7 +42,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'):
 
             if(!$old || !isset($old->$k)) {
                 if(!$childs) {
-                    if($_POST['include_new']) $diffs['childs'][$k] = ['name' => $k, 'class' => 'new', 'content' => $_POST['new_prefix'].$value, 'childs' => null];
+                    if($_POST['include_new']) {
+                        $value = preg_match($cdata_regex, $parent->asXML()) ? '<![CDATA['.$_POST['new_prefix'].$value.']]>' : $_POST['new_prefix'].$value;
+                        $diffs['childs'][$k] = ['name' => $k, 'class' => 'new', 'content' => $value, 'childs' => null];
+                    }
                 } else {
                     $diffs['childs'][$k] = ['name' => $k, 'class' => 'new', 'content' => null, 'childs' => []];
                     $gag = null;
@@ -56,7 +61,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'):
 
                 if(!$childs) {
                     if($_POST['include_same']) {
-                        if($_POST['prefer_old_values']) $value = (string)$old->$k;
+                        if($_POST['prefer_old_values']) $value = preg_match($cdata_regex, $old->$k->asXML()) ? '<![CDATA['.$_POST['old_prefix'].(string)$old->$k.']]>' : $_POST['old_prefix'].(string)$old->$k ;
+                        else $value = preg_match($cdata_regex, $parent->asXML()) ? '<![CDATA['.$_POST['new_prefix'].$value.']]>' : $_POST['new_prefix'].$value ;;
                         $diffs['childs'][$k] = ['name' => $k, 'class' => $class, 'content' => $value, 'childs' => null];
                     }
                 } else {
@@ -71,6 +77,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'):
 
     function find_deprecated(&$new, &$old, &$diffs, $deep = 0) {
         $deep++;
+        global $cdata_regex;
         for( $old->rewind(); $old->valid(); $old->next() ) {
             $k = $old->key();
 
@@ -88,7 +95,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'):
 
                 find_deprecated($old_child, $old->current(), $diffs['childs'][$k]);
                 if(!count($diffs['childs'][$k]['childs'])) unset($diffs['childs'][$k]);
-            } elseif(!$new || !isset($new->$k)) $diffs['childs'][$k] = ['name' => $k, 'class' => 'deprecated', 'content' => $_POST['deprecated_prefix'].(string)$old->current(), 'childs' => null];
+            } elseif(!$new || !isset($new->$k)) {
+                $value = preg_match($cdata_regex, $old->current()->asXML()) ? '<![CDATA['.$_POST['deprecated_prefix'].(string)$old->current().']]>' : $_POST['deprecated_prefix'].(string)$old->current();
+                $diffs['childs'][$k] = ['name' => $k, 'class' => 'deprecated', 'content' => $value, 'childs' => null];
+            }
         }
         $deep--;
     }
@@ -99,7 +109,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'):
         foreach ($diffs['childs'] as $k => $value) {
             echo '<ul class="'.$value['class'].'">';
             if (is_array($value['childs'])) build_list($value, $deep);
-            else echo '<li class="'.$value['class'].'">&lt;'.$k.'&gt;'.$value['content'].'&lt;/'.$k.'&gt;</li>';
+            else echo '<li class="'.$value['class'].'">&lt;'.$k.'&gt;'.htmlspecialchars($value['content']).'&lt;/'.$k.'&gt;</li>';
             echo '</ul>';
         }
         if($deep > 1) echo '<li>&lt;/'.$diffs['name'].'&gt;</li>';
