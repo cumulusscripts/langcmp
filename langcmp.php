@@ -61,8 +61,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'):
 
                 if(!$childs) {
                     if($_POST['include_same']) {
-                        if($_POST['prefer_old_values']) $value = preg_match($cdata_regex, $old->$k->asXML()) ? '<![CDATA['.$_POST['old_prefix'].(string)$old->$k.']]>' : $_POST['old_prefix'].(string)$old->$k ;
-                        else $value = preg_match($cdata_regex, $parent->asXML()) ? '<![CDATA['.$_POST['new_prefix'].$value.']]>' : $_POST['new_prefix'].$value ;;
+                        if($_POST['prefer_old_values']) $value = preg_match($cdata_regex, $old->$k->asXML()) ? '<![CDATA['.$_POST['old_prefix'].(string)$old->$k.']]>' : $_POST['old_prefix'].(string)$old->$k;
+                        else $value = preg_match($cdata_regex, $parent->asXML()) ? '<![CDATA['.$_POST['new_prefix'].$value.']]>' : $_POST['new_prefix'].$value;
                         $diffs['childs'][$k] = ['name' => $k, 'class' => $class, 'content' => $value, 'childs' => null];
                     }
                 } else {
